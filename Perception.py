@@ -1,3 +1,5 @@
+import math
+
 import cv2
 import numpy as np
 from numpy import linalg as la
@@ -14,8 +16,9 @@ yellow_upper = np.asarray([29, 255, 255])
 white_lower = np.asarray([0, 0, 100])
 white_upper = np.asarray([255, 40, 255])
 
-DISTANCE_OFFSET = 15
+DISTANCE_OFFSET = 7
 DEGREES_OFFSET = 0
+DOUBLE_LINE_HEADING_OFFSET = 5
 
 midpoint_lookdown = np.asarray([320, 150])
 midpoint_lookahead = np.asarray([320, 80])
@@ -35,7 +38,7 @@ def crop_looking_ahead(img):
 
 
 def crop_for_initialization(img):
-    h,w, c = img.shape
+    h, w, c = img.shape
     return img[150:h, 0:w]
 
 
@@ -117,13 +120,27 @@ def get_lines_in_image(edges):
     return lines
 
 
-def filter_outlier_lines(lines):
-    slopes = [np.around(np.degrees(np.arctan(slope(line)))) for line in lines]
-    mean = np.mean(slopes)
-    std = np.std(slopes)
 
-    filtered_lines = [line for line in lines if (abs(mean - np.around(np.degrees(np.arctan(slope(line))))) <= std)]
+def filter_outlier_lines(lines):
+    if (lines is None) or len(lines) == 0 or len(lines) == 1:
+        filtered_lines = lines
+
+    elif len(lines) == 2:
+        if get_length(lines[0]) > get_length(lines[1]):
+            filtered_lines = [lines[0]]
+        else:
+            filtered_lines = [lines[1]]
+    else:
+        slopes = [np.around(np.degrees(np.arctan(slope(line)))) for line in lines]
+        mean = np.mean(slopes)
+        std = np.std(slopes)
+        filtered_lines = [line for line in lines if (abs(mean - np.around(np.degrees(np.arctan(slope(line))))) <= 1.2*std)]
+
     return filtered_lines
+
+def get_length(line):
+    x1, y1, x2, y2 = line[0]
+    return math.sqrt((x1-x2)**2 + (y1-y2)**2)
 
 
 def slope(line):
@@ -136,7 +153,7 @@ def get_closest_line(hsv_img, color, mode):
     lines = filter_outlier_lines(get_lines_in_image(edges))
 
     closest_line = None
-    min_dist = 500
+    min_dist = 5000000
     for line in lines:
         dist = get_distance_from_line(line, mode)
         if dist < min_dist:
@@ -184,17 +201,19 @@ def get_d_est(yellow, white, mode):
         return 0
     return d_est + DISTANCE_OFFSET
 
+
 def one_side_distance_offset(mode):
     if mode == "lookdown":
-        return 200
+        return 194
     if mode == "initial":
-        return 360
+        return 350
     if mode == "lookahead":
         return 95
 
+
 def get_heading(yellow, white):
     if (yellow is not None) and (white is not None):
-        heading = np.degrees(np.arctan((slope(white) + slope(yellow)) / 2))
+        heading = np.degrees(np.arctan((slope(white) + slope(yellow)) / 2)) + DOUBLE_LINE_HEADING_OFFSET
     elif (yellow is not None) and slope(yellow) <= 0:
         heading = np.degrees(np.arctan(slope(yellow))) - 90 + DEGREES_OFFSET
     elif (yellow is not None) and slope(yellow) > 0:

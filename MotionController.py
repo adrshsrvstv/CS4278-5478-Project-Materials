@@ -71,7 +71,7 @@ k_d = 0.1
 speed = 0
 steering = 0
 
-controller = Controller(args.control_path, heading, d_est, k_p, k_d)
+controller = Controller(args.control_path)
 
 while curr_pos != goal:
     obs, reward, done, info = env.step([speed, steering])
@@ -85,6 +85,8 @@ while curr_pos != goal:
 
     speed, k_p, k_d, d_est, heading = controller.get_next_action(obs, info)
     steering = k_p * d_est + k_d * heading
+    speed = controller.get_speed(steering)
+
     actions.append((speed, steering))
 
     curr_pos = info['curr_pos']

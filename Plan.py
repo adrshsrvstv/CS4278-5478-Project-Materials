@@ -2,10 +2,10 @@ import csv
 from enum import Enum
 
 
-class Intent(Enum):
-    FORWARD = 1
-    LEFT = 2
-    RIGHT = 3
+class Intent(str, Enum):
+    FORWARD = 'forward'
+    LEFT = 'left'
+    RIGHT = 'right'
 
 
 class Plan:
@@ -17,15 +17,7 @@ class Plan:
         with open(filepath) as csvfile:
             for row in csv.reader(csvfile):
                 goal_tile = int(row[0][1]), int(row[1][1])
-                direction = row[2][1:]
-                if direction == 'forward':
-                    intent = Intent.FORWARD
-                elif direction == 'left':
-                    intent = Intent.LEFT
-                elif direction == 'right':
-                    intent = Intent.RIGHT
-                else:
-                    raise ValueError('Invalid Intent in Control Path')
+                intent = Intent(row[2][1:])
                 plan.append((goal_tile, intent))
         return plan
 

@@ -1,35 +1,33 @@
 import numpy as np
-
 from Perception import *
 from Plan import *
+from enum import Enum
 
 
 class State(Enum):
     INITIALIZING = 1
-    STEADY = 2
+    IN_LANE = 2
+    TURNING = 3
 
 
-class Mode(Enum):
-    IN_LANE = 1
-    TURNING = 2
-
-
-LOOKDOWN = "lookdown"
-LOOKAHEAD = "lookahead"
-INITIAL = "initial"
+class Mode(str, Enum):
+    LOOKDOWN = "lookdown"
+    LOOKAHEAD = "lookahead"
+    INITIAL = "initial"
 
 
 class Controller:
-    def __init__(self, plan_file, heading, d_est, k_p, k_d):
+    def __init__(self, plan_file):
         self.state = State.INITIALIZING
-        self.mode = None
-        self.intent = None
-
-        self.heading = heading
-        self.d_est = d_est
-        self.k_p = k_p
-        self.k_d = k_d
         self.plan = Plan(plan_file)
+
+    def get_speed(self, steering):
+        if abs(steering) < 5:
+            speed = 1
+        else:
+            speed = math.exp(-abs(steering) / 25)
+        return round(speed, 2)
+
 
     def check_plan(self, info):
         goal_tile, intent = self.plan.get_current_goal()
@@ -45,28 +43,28 @@ class Controller:
 
         if self.state == State.INITIALIZING:
             speed, k_p, k_d = 0.25, 0.05, 2.5
-            yellow, white, red = get_lane_lines(initial, mode=INITIAL)
+            yellow, white, red = get_lane_lines(initial, Mode.INITIAL)
             heading = get_heading(yellow, white)
-            d_est = get_d_est(yellow, white, mode=INITIAL)
+            d_est = get_d_est(yellow, white, Mode.INITIAL)
 
             if abs(np.degrees(heading)) < 10:  # and abs(d_est) < 40:
-                self.state = State.STEADY
-                self.mode = Mode.IN_LANE
-                print("State changed to STEADY")
+                self.state = State.IN_LANE
+                print("State changed to IN_LANE")
 
-        elif self.state == State.STEADY:
-
+        elif self.state == State.IN_LANE:
             speed, k_p, k_d = 1, 0.125, 12.5
-            yellow, white, red = get_lane_lines(lookdown, mode=LOOKDOWN)
+            yellow, white, red = get_lane_lines(lookdown, Mode.LOOKDOWN)
 
-            if self.mode == Mode.IN_LANE:
-                if (intent == Intent.LEFT or intent == Intent.RIGHT) and (red is not None):
-                    speed, d_est, heading = 0, 0, 0
-                else:  # continue straight
-                    heading = get_heading(yellow, white)
-                    d_est = get_d_est(yellow, white, mode=LOOKDOWN)
-                
-            elif self.mode == Mode.TURNING:
-                pass
+            if (intent == Intent.LEFT or intent == Intent.RIGHT) and (red is not None):
+                speed, d_est, heading = 0, 0, 0
+            else:  # continue straight
+                heading = get_heading(yellow, white)
+                d_est = get_d_est(yellow, white, Mode.LOOKDOWN)
+
+        elif self.state == State.TURNING:
+            pass
+
+        else:
+            raise ValueError("Invalid state.")
 
         return speed, k_p, k_d, d_est, heading
