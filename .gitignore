@@ -5,3 +5,8 @@
 
 gym-duckietown/test_dev/
 path_*.yaml
+observations_test/
+observations/
+__pycache__/
+.DS_Store
+.ipynb_checkpoints/

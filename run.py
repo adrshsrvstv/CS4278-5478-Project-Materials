@@ -7,6 +7,8 @@ from pyglet.window import key
 import sys
 import cv2
 
+from gym_duckietown.wrappers import UndistortWrapper
+
 
 def str2bool(v):
     """
@@ -46,6 +48,7 @@ env = DuckietownEnv(
     seed=args.seed,
     user_tile_start=args.start_tile,
     goal_tile=args.goal_tile,
+    full_transparency=True,
     randomize_maps_on_reset=False
 )
 
@@ -105,8 +108,9 @@ else:
     for speed, steering in actions:
         obs, reward, done, info = env.step([speed, steering])
         curr_pos = info['curr_pos']
+        cv2.imwrite("observations/"+str(env.unwrapped.step_count) + ".jpg", cv2.cvtColor(obs, cv2.COLOR_RGB2BGR))
 
-        print(f"current pose = {info['curr_pos']}, step count = {env.unwrapped.step_count}, step reward = {reward:.3f}")
+        print(f"speed = {speed}, steering = {steering}, current pose = {info['curr_pos']}, current pose three = {info['Simulator']['cur_pos']}, current angle = {info['Simulator']['cur_angle']} step count = {env.unwrapped.step_count}, step reward = {reward:.3f}")
 
         env.render()
 
