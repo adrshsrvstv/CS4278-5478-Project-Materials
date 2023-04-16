@@ -37,8 +37,8 @@ parser.add_argument('--map-name', '-m', default="map4_0", type=str)
 parser.add_argument('--seed', '-s', default=2, type=int)
 parser.add_argument('--start-tile', '-st', default="1,13", type=str, help="two numbers separated by a comma")
 parser.add_argument('--goal-tile', '-gt', default="3,3", type=str, help="two numbers separated by a comma")
-parser.add_argument('--control_path', default='./map4_0_seed2_start_1,13_goal_3,3.txt', type=str,
-                    help="the control file to run")
+#parser.add_argument('--control_path', default='./map4_0_seed2_start_1,13_goal_3,3.txt', type=str,
+#                    help="the control file to run")
 parser.add_argument('--manual', default=False, type=str2bool, help="whether to manually control the robot")
 args = parser.parse_args()
 
@@ -79,7 +79,7 @@ k_d = 0.1
 speed = 0
 steering = 0
 
-controller = Controller(args.control_path)
+controller = Controller(args.map_name, args.start_tile, args.goal_tile)
 
 while curr_pos != goal:
     obs, reward, done, info = env.step([speed, steering])

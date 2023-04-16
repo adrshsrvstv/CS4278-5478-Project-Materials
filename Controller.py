@@ -1,6 +1,7 @@
 import numpy as np
 from Perception import *
 from Plan import *
+from Intentions import *
 
 
 def get_pid_params_for(state):
@@ -37,9 +38,11 @@ def get_turn_steps(intent):
 
 
 class Controller:
-    def __init__(self, plan_file):
+    def __init__(self, map_name, start_tile, goal_tile):
         self.state = State.INITIALIZING
-        self.plan = Plan(plan_file)
+        start = tuple(start_tile.split(','))
+        goal = tuple(goal_tile.split(','))
+        self.plan = get_plan(map_name, start_tile, goal_tile)
         self.steps_after_crossing_red_line = 0
         self.turn_steps_taken = 0
         self.turn_intent = None
