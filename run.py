@@ -65,7 +65,7 @@ print("start tile:", start_pos, " goal tile:", goal)
 # Tile (0, 0) locates at left top corner.
 cv2.imshow("map", map_img)
 cv2.waitKey(200)
-
+total_reward = 0
 # save map (example)
 # cv2.imwrite(env.map_name + ".png", env.get_occupancy_grid(env.map_data))
 
@@ -107,6 +107,7 @@ else:
 
     for speed, steering in actions:
         obs, reward, done, info = env.step([speed, steering])
+        total_reward += reward
         curr_pos = info['curr_pos']
         cv2.imwrite("observations/"+str(env.unwrapped.step_count) + ".jpg", cv2.cvtColor(obs, cv2.COLOR_RGB2BGR))
 
@@ -117,6 +118,7 @@ else:
     # dump the controls using numpy
     np.savetxt(f'./{args.map_name}_seed{args.seed}_start_{start_pos[0]},{start_pos[1]}_goal_{goal[0]},{goal[1]}.txt',
                actions, delimiter=',')
-
+print('Final Reward = %.3f' % total_reward)
+cv2.imwrite("observations/map.jpg", cv2.cvtColor(map_img, cv2.COLOR_RGB2BGR))
 env.close()
 
