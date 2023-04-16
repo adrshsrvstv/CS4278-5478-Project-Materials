@@ -16,6 +16,9 @@ yellow_upper = np.asarray([29, 255, 255])
 white_lower = np.asarray([0, 0, 100])
 white_upper = np.asarray([255, 40, 255])
 
+building_lower = np.array([5, 0, 5])
+building_upper = np.array([255, 10, 255])
+
 DISTANCE_OFFSET = 7
 DEGREES_OFFSET = 0
 DOUBLE_LINE_HEADING_OFFSET = 5
@@ -86,6 +89,10 @@ def get_red_mask(hsv_img):  # in HSV format
     mask_red_l = cv2.inRange(hsv_img, red_lower_l, red_upper_l)
     red_mask = cv2.bitwise_or(mask_red, mask_red_l)
     return red_mask
+
+def get_building_mask(hsv_img): #in HSV format
+    mask_building = cv2.inRange(hsv_img, building_lower, building_upper)
+    return mask_building
 
 
 def get_lane_mask(hsv_img):  # in HSV format
@@ -330,3 +337,64 @@ def get_heading_from_red_line(red_line):
     else:
         heading = np.radians(target_slope + 90)
     return heading
+
+
+def get_best_possible_building_location(left_img, right_img, forward_img):
+    """
+    Take three images:
+    left: angle = 60
+    right: angle = 45
+    forward: angle = 0
+    Pass them to this function and it'll tell you which direction and position the building is most probably in.
+    Output egs: ['left', 1], ['right', 2], ['stright', 3]
+    Direction can be left, right, or straight.
+    Position can be 1, 2 or 3 - 1 is the left part of the image, 2 is the middle part of the image and 3 is the right part of the image.
+    Or you can think of position as the literal part of the image that the cut part comes from. The first cut part, second cut part or the third cut part.
+    """
+    lh, lw, _ = left_img.shape
+    rh, rw, _ = right_img.shape
+    sh, sw, _ = forward_img.shape
+    h_cut_l1, h_cut_l2, h_cut_l3 = 3*lh//8, 1*lh//3, 2*lh//7
+    h_cut_r1, h_cut_r2, h_cut_r3 = 4*rh//11, 2*rh//4, 5*rh//8
+    h_cut_s1, h_cut_s2, h_cut_s3 = 2*sh//7, 2*sh//7, 2*sh//7
+    img1, img2, img3 = left_img[:h_cut_l1, :lw//3, :], left_img[:h_cut_l2, lw//3:2*lw//3, :], left_img[:h_cut_l3, 2*lw//3:, :]
+    img4, img5, img6 = right_img[:h_cut_r1, :rw//3, :], right_img[:h_cut_r2, rw//3:2*rw//3, :], right_img[:h_cut_r3, 2*rw//3:, :]
+    img7, img8, img9 = forwardimg[:h_cut_s1, :sw//3, :], forwardimg[:h_cut_s2, sw//3:2*sw//3, :], forwardimg[:h_cut_s3, 2*sw//3:, :]
+
+    max_prob = -1
+    direction = None
+    position = None
+    for i, img in enumerate([img1, img2, img3]):
+        building_mask = get_building_mask(img)
+        prob = len(np.where(building_mask!=0)[0])/building_mask.size()
+        if prob > max_prob:
+            direction = 'left'
+            position = i
+            max_prob = prob
+    for i, img in enumerate([img4, img5, img6]):
+        building_mask = get_building_mask(img)
+        prob = len(np.where(building_mask!=0)[0])/building_mask.size()
+        if prob > max_prob:
+            direction = 'right'
+            position = i
+            max_prob = prob
+    for i, img in enumerate([img7, img8, img9]):
+        building_mask = get_building_mask(img)
+        prob = len(np.where(building_mask!=0)[0])/building_mask.size()
+        if prob > max_prob:
+            direction = 'straight'
+            position = i
+            max_prob = prob
+    return [direction, position]
+
+
+"""
+As soon as you reach the goal tile, stop the bot
+Take three pictures for right(45 degrees), left(60 degrees) and forward(0 degrees)
+Send them to get_best_possible_building_location()
+Take actions as per the output, for example, [left, 1] and [right, 3] mean the hotel is probably right next to you already
+[left, 2] and [right, 2] mean the hotel is a few steps ahead
+[left, 3] and [right, 3] mean the hotel is near the end of the tile.
+[straight, 1], [straight, 2] [straight, 3] mean the hotel is at the end of the tile
+You might want to use lookdown and make sure you don't cross a white or yellow line while moving forward
+"""
