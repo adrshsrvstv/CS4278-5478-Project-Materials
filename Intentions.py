@@ -19,8 +19,9 @@ def process_all_maps():
     with open('testcases/milestone2.json', 'r') as json_f:
         all_maps = json.load(json_f)
     for map_name in all_maps:
-        output_file = get_plan(map_name, all_maps[map_name]['start'], all_maps[map_name]['goal'])
-        print(f'Map {map_name} has its output stored in {output_file}.')
+        map_img = cv2.imread(map_name.split('_')[0]+'.png')
+        output_file = get_plan(map_name, map_img, all_maps[map_name]['start'], all_maps[map_name]['goal'])
+        # print(f'Map {map_name} has its output stored in {output_file}.')
 
 def process_one_map(map_img, map_name='map1_0'):
     with open('testcases/milestone2.json', 'r') as json_f:
@@ -166,6 +167,10 @@ def convert_img_to_map(map_img):
                     tiles[i][j] = 'curve_right/E'
                 elif left==1 and up==1:
                     tiles[i][j] = 'curve_left/E'
+                elif left==1 or right==1:
+                    tiles[i][j] = 'straight/E'
+                elif up==1 or down==1:
+                    tiles[i][j] = 'straight/N'
     return tiles
 
 def get_plan(map_name, map_image, start, goal):
@@ -294,7 +299,7 @@ def generate_intentions(final_tile):
 
 
 if __name__ == "__main__":
-    # process_all_maps()
-    map_img = cv2.imread('map3.png')
-    process_one_map(map_img, 'map3_0')
+    process_all_maps()
+    # map_img = cv2.imread('map3.png')
+    # process_one_map(map_img, 'map3_0')
     # get_allowed_moves('curve_left\E')
