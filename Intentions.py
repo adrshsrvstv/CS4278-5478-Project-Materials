@@ -172,7 +172,7 @@ def get_plan(map_name, map_image, start, goal):
     # with open(f'gym-duckietown/gym_duckietown/map_2021/{map_name}.yaml', 'r') as yaml_f:
     #     map_info = yaml.safe_load(yaml_f)
     # tiles = np.array(map_info['tiles'])
-    map_image = cv2.imread(map_image)
+    # map_image = cv2.imread(map_image)
     tiles = np.array(convert_img_to_map(map_image))
     tiles = tiles.T
     
