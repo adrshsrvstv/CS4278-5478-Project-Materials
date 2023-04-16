@@ -1,5 +1,6 @@
 from multiprocessing.sharedctypes import Value
 import numpy as np
+import cv2
 import yaml
 import json
 import argparse
@@ -21,13 +22,13 @@ def process_all_maps():
         output_file = get_plan(map_name, all_maps[map_name]['start'], all_maps[map_name]['goal'])
         print(f'Map {map_name} has its output stored in {output_file}.')
 
-def process_one_map(map_name='map1_0'):
+def process_one_map(map_img, map_name='map1_0'):
     with open('testcases/milestone2.json', 'r') as json_f:
         all_maps = json.load(json_f)
     if map_name not in all_maps:
         print('Map does not exist.')
         raise(ValueError('Map does not exist.'))
-    output_file = get_plan(map_name, all_maps[map_name]['start'], all_maps[map_name]['goal'])
+    output_file = get_plan(map_name, map_img, all_maps[map_name]['start'], all_maps[map_name]['goal'])
     print(f'Map {map_name} has its output stored in {output_file}.')
 
 def get_allowed_moves(tile, prev_move):
@@ -108,10 +109,71 @@ def get_all_entries(tile):
     elif tile_type == '3way_right':
         return [cardinals[(cardinals.index(dir)+rotation)%4] for rotation in [-2, -1, 0]]
 
-def get_plan(map_name, start, goal):
-    with open(f'gym-duckietown/gym_duckietown/map_2021/{map_name}.yaml', 'r') as yaml_f:
-        map_info = yaml.safe_load(yaml_f)
-    tiles = np.array(map_info['tiles'])
+def convert_img_to_map(map_img):
+    matrix = []
+    for i in range(50, map_img.shape[0], 100):
+        row = []
+        for j in range(50, map_img.shape[1], 100):
+            if map_img[i, j, 0] == 0:
+                row.append(0)
+            else:
+                row.append(1)
+        matrix.append(row)
+    matrix = np.array(matrix)
+
+    tiles = np.zeros_like(matrix)
+    tiles = [arr.tolist() for arr in tiles]
+    for i in range(matrix.shape[0]):
+        for j in range(matrix.shape[1]):
+            if matrix[i, j] == 0:
+                tiles[i][j] = 'empty'
+            else:
+                if i-1<0:
+                    up = 0
+                else:
+                    up = matrix[i-1, j]
+                if i+1>=matrix.shape[0]:
+                    down = 0
+                else:
+                    down = matrix[i+1, j]
+                if j-1<0:
+                    left = 0
+                else:
+                    left = matrix[i, j-1]
+                if j+1>=matrix.shape[0]:
+                    right = 0
+                else:
+                    right = matrix[i, j+1]
+                if up==1 and down==1 and right==1 and left==1:
+                    tiles[i][j] = '4way'
+                elif up==1 and down==1 and right==1:
+                    tiles[i][j] = '3way_right/N'
+                elif up==1 and down==1 and left==1:
+                    tiles[i][j] = '3way_left/N'
+                elif up==1 and left==1 and right==1:
+                    tiles[i][j] = '3way_left/E'
+                elif down==1 and left==1 and right==1:
+                    tiles[i][j] = '3way_right/E'
+                elif up==1 and down==1:
+                    tiles[i][j] = 'straight/N'
+                elif left==1 and right==1:
+                    tiles[i][j] = 'straight/E'
+                elif up==1 and right==1:
+                    tiles[i][j] = 'curve_right/W'
+                elif right==1 and down==1:
+                    tiles[i][j] = 'curve_left/W'
+                elif down==1 and left==1:
+                    tiles[i][j] = 'curve_right/E'
+                elif left==1 and up==1:
+                    tiles[i][j] = 'curve_left/E'
+    return tiles
+
+def get_plan(map_name, map_image, start, goal):
+    # with open(f'gym-duckietown/gym_duckietown/map_2021/{map_name}.yaml', 'r') as yaml_f:
+    #     map_info = yaml.safe_load(yaml_f)
+    # tiles = np.array(map_info['tiles'])
+    map_image = cv2.imread(map_image)
+    tiles = np.array(convert_img_to_map(map_image))
     tiles = tiles.T
     
     startx, starty = start
@@ -232,6 +294,7 @@ def generate_intentions(final_tile):
 
 
 if __name__ == "__main__":
-    process_all_maps()
-    # process_one_map('map3_0')
+    # process_all_maps()
+    map_img = cv2.imread('map3.png')
+    process_one_map(map_img, 'map3_0')
     # get_allowed_moves('curve_left\E')

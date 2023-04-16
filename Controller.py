@@ -38,11 +38,11 @@ def get_turn_steps(intent):
 
 
 class Controller:
-    def __init__(self, map_name, start_tile, goal_tile):
+    def __init__(self, map_name, map_image, start_tile, goal_tile):
         self.state = State.INITIALIZING
         start = tuple(start_tile.split(','))
         goal = tuple(goal_tile.split(','))
-        self.plan = get_plan(map_name, start_tile, goal_tile)
+        self.plan = get_plan(map_name, map_image, start_tile, goal_tile)
         self.steps_after_crossing_red_line = 0
         self.turn_steps_taken = 0
         self.turn_intent = None

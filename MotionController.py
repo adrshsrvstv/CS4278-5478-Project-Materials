@@ -79,7 +79,7 @@ k_d = 0.1
 speed = 0
 steering = 0
 
-controller = Controller(args.map_name, args.start_tile, args.goal_tile)
+controller = Controller(args.map_name, map_img, args.start_tile, args.goal_tile)
 
 while curr_pos != goal:
     obs, reward, done, info = env.step([speed, steering])
