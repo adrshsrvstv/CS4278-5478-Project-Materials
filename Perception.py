@@ -16,9 +16,9 @@ yellow_upper = np.asarray([29, 255, 255])
 white_lower = np.asarray([0, 0, 100])
 white_upper = np.asarray([255, 40, 255])
 
-DISTANCE_OFFSET = -5
+DISTANCE_OFFSET = 5 # analytically optimal
 DEGREES_OFFSET = 0
-DOUBLE_LINE_HEADING_OFFSET = 5
+DOUBLE_LINE_HEADING_OFFSET = 3
 
 midpoint_lookdown = np.asarray([320, 150])
 midpoint_lookahead = np.asarray([320, 80])
@@ -53,7 +53,7 @@ def get_mode_from_state(state):
     elif state == State.CROSSING_INTERSECTION:
         return Mode.LOOKDOWN
     else:
-        raise ValueError("Invalid state")
+        raise ValueError("Invalid state:", state)
 
 
 def crop_looking_down(img):
@@ -139,9 +139,9 @@ def preprocess(img, state):
 
 def get_lane_lines(img, state):
     hsv_image = preprocess(img, state)
-    yellow = get_closest_line(hsv_image, "yellow", state)
     red = get_closest_line(hsv_image, "red", state)
-    white = get_closest_line(hsv_image, "white", state, yellow_line_for_reference=yellow)
+    yellow = get_closest_line(hsv_image, "yellow", state, red_line_for_reference=red)
+    white = get_closest_line(hsv_image, "white", state, yellow_line_for_reference=yellow, red_line_for_reference=red)
     return yellow, white, red
 
 
@@ -185,6 +185,9 @@ def filter_on_color_based_on_state(lines, color, state, yellow_line_for_referenc
         if color == 'white':
             pass
         if color == 'yellow':
+            if red_line_for_reference is not None:
+                # Avoid yellow lines that are almost horizontal
+                lines = [line for line in lines if abs(np.degrees(np.arctan(slope(line)))) > 10]
             pass
     elif state == State.IN_LANE:
         if color == 'red':
@@ -204,9 +207,13 @@ def filter_on_color_based_on_state(lines, color, state, yellow_line_for_referenc
             # avoid red lines that are maybe horizontal but are entirely to the left of the image - they belong to opposite lane ahead of intersection
             lines = [line for line in lines if (line[0][0] > 320 or line[0][2] > 320)]
         if color == 'white':
-            pass
+            # avoid the ghost white line on edge of red lane
+            if red_line_for_reference is not None:
+                lines = [line for line in lines if abs(np.degrees(np.arctan(slope(line))) - np.degrees(np.arctan(slope(red_line_for_reference)))) > 15]
         if color == 'yellow':
-            pass
+            # Avoid yellow lines that are almost parallel to red line
+            if red_line_for_reference is not None:
+                lines = [line for line in lines if abs(np.degrees(np.arctan(slope(line))) - np.degrees(np.arctan(slope(red_line_for_reference)))) > 15]
     elif state == State.CROSSING_INTERSECTION:
         if color == 'red':
             # avoid red lines that are not nearly horizontal - for example, fom a perpendicular lane
@@ -302,7 +309,7 @@ def one_side_distance_offset(mode):
 
 def get_heading(yellow, white):
     if (yellow is not None) and (white is not None):
-        heading = np.degrees(np.arctan((slope(white) + slope(yellow)) / 2)) + DOUBLE_LINE_HEADING_OFFSET
+        heading = (np.degrees(np.arctan(slope(yellow))) + np.degrees(np.arctan(slope(white)))) + DOUBLE_LINE_HEADING_OFFSET
     elif (yellow is not None) and slope(yellow) <= 0:
         heading = np.degrees(np.arctan(slope(yellow))) - 90 + DEGREES_OFFSET
     elif (yellow is not None) and slope(yellow) > 0:

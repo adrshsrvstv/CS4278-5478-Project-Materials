@@ -93,10 +93,7 @@ while curr_pos != goal:
     if curr_pos == goal:
         break
 
-    k_p, k_d, d_est, heading = controller.get_next_action(obs, info)
-    steering = k_p * d_est + k_d * heading
-    speed = get_speed(steering)
-
+    speed, steering = controller.get_next_action(obs, info)
     actions.append((speed, steering))
 
     curr_pos = info['curr_pos']

@@ -9,7 +9,7 @@ def get_pid_params_for(state):
     elif state == State.IN_LANE:
         k_p, k_d = 0.15, 12.5
     elif state == State.IN_LANE_USING_RED:
-        k_p, k_d = 0, 12.5
+        k_p, k_d = 0.15, 12.5
     elif state == State.TURNING:
         k_p, k_d = 0.125, 12.5
     elif state == State.CROSSING_INTERSECTION:
@@ -20,7 +20,7 @@ def get_pid_params_for(state):
 
 
 def get_speed(steering):
-    if abs(steering) < 5:
+    if abs(steering) < 3:
         speed = 1
     else:
         speed = math.exp(-abs(steering) / 25)
@@ -69,7 +69,7 @@ class Controller:
 
         if self.state == State.INITIALIZING:
             heading = get_heading(yellow, white)
-            if abs(np.degrees(heading)) < 10:  # and abs(d_est) < 40:
+            if abs(np.degrees(heading)) < 10: # and abs(d_est) < 25:
                 self.state = State.IN_LANE
                 print("State changed to ", self.state)
 
@@ -84,7 +84,7 @@ class Controller:
                     (yellow is None and white is not None) or (white is None and yellow is not None)):
                 self.state = State.INITIALIZING
                 print("Trying to get back in lane. State changed to ", self.state)
-                k_p, k_d, d_est, heading = self.get_next_action(observation, info)
+                return self.get_next_action(observation, info)
             # continue straight if you don't see red, or if you see red, but it's too inclined to correct solely based on it.
             # This is the case where either both yellow and white are present or neither are.
             else:
@@ -118,7 +118,7 @@ class Controller:
                 self.turn_intent = intent
                 print("State changed to ", self.state)
                 print("Current intent: ", intent, " Current goal: ", goal_tile)
-                k_p, k_d, d_est, heading = self.get_next_action(observation, info)
+                return self.get_next_action(observation, info)
 
         elif self.state == State.TURNING:
             self.steps_after_crossing_red_line += 1
@@ -137,7 +137,7 @@ class Controller:
                 print("steps since crossing red: ", self.steps_after_crossing_red_line)
             else:
                 if self.turn_steps_taken <= get_turn_steps(self.turn_intent):
-                    heading = np.radians(25) if intent == Intent.LEFT else np.radians(-25)
+                    heading = np.radians(24) if intent == Intent.LEFT else np.radians(-24)
                     d_est = 0
                     self.turn_steps_taken += 1
                 else:
@@ -146,4 +146,6 @@ class Controller:
         else:
             raise ValueError("Invalid state.")
 
-        return k_p, k_d, d_est, heading
+        steering = k_p * d_est + k_d * heading
+        speed = get_speed(steering)
+        return speed, steering
