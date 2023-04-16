@@ -148,7 +148,7 @@ def get_lane_lines(img, state):
 def get_lines_in_image(edges):
     lines = cv2.HoughLinesP(edges, rho=1, theta=1 * np.pi / 180, threshold=35, minLineLength=75, maxLineGap=50)
     if lines is None:
-        lines = cv2.HoughLinesP(edges, rho=1, theta=1 * np.pi / 180, threshold=35, minLineLength=70, maxLineGap=50)
+        lines = cv2.HoughLinesP(edges, rho=1, theta=1 * np.pi / 180, threshold=35, minLineLength=65, maxLineGap=50)
     if lines is None:
         lines = []
     return lines
@@ -157,7 +157,7 @@ def get_lines_in_image(edges):
 def filter_outlier_lines(lines):
     if (lines is None) or len(lines) == 0 or len(lines) == 1:
         filtered_lines = lines
-    elif (len(lines) == 2) and abs(np.degrees(slope(lines[0])) - np.degrees(slope(lines[1]))) > 20:
+    elif (len(lines) == 2) and abs(np.degrees(np.arctan(slope(lines[0]))) - np.degrees(np.arctan(slope(lines[1])))) > 30:
         filtered_lines = [lines[0]] if get_length(lines[0]) > get_length(lines[1]) else [lines[1]]
     else:
         slopes = [abs(np.around(np.degrees(np.arctan(slope(line))))) for line in lines]

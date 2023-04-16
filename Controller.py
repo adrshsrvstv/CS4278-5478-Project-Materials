@@ -33,7 +33,16 @@ def get_turn_steps(intent):
     if intent == Intent.RIGHT:
         return 7
     else:
-        raise ValueError("Invalid Intent")
+        raise ValueError("Invalid Intent", intent)
+
+
+def get_straight_steps_for_turn(intent):
+    if intent == Intent.LEFT:
+        return 14
+    if intent == Intent.RIGHT:
+        return 7
+    else:
+        raise ValueError("Invalid Intent", intent)
 
 
 class Controller:
@@ -113,16 +122,16 @@ class Controller:
 
         elif self.state == State.TURNING:
             self.steps_after_crossing_red_line += 1
-            if (self.turn_steps_taken > get_turn_steps(self.turn_intent)) and ((yellow is not None) and (white is not None)):
+            if (self.turn_steps_taken > get_turn_steps(self.turn_intent)) and (
+                    (yellow is not None) and (white is not None)):
                 heading = get_heading(yellow, white)
-                if intent == Intent.FORWARD: # you would've reached goal tile by now
+                if intent == Intent.FORWARD:  # you would've reached goal tile by now
                     self.state = State.IN_LANE
                     self.steps_after_crossing_red_line = 0
                     self.turn_steps_taken = 0
                     self.turn_intent = None
                     print("State changed to ", self.state)
-            elif (intent == Intent.LEFT and self.steps_after_crossing_red_line < 13) or (
-                    intent == Intent.RIGHT and self.steps_after_crossing_red_line < 7):
+            elif self.steps_after_crossing_red_line < get_straight_steps_for_turn(self.turn_intent):
                 heading = np.radians(np.degrees(np.arctan(slope(white))) - 30) if (white is not None) else 0
                 d_est = 0
                 print("steps since crossing red: ", self.steps_after_crossing_red_line)
