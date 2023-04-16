@@ -188,6 +188,7 @@ def get_plan(map_name, start, goal):
         print(map_name, 'Goal Found')
     else:
         print(map_name, 'Goal Not Found')
+    return path
 
 def generate_intentions(final_tile):
     moves = ['right', 'up', 'left', 'down']
