@@ -54,7 +54,7 @@ env = DuckietownEnv(
 )
 
 # obs = env.reset() # WARNING: never call this function during testing
-env.render()
+
 
 map_img, goal, start_pos = env.get_task_info()
 print("start tile:", start_pos, " goal tile:", goal)
@@ -66,6 +66,8 @@ print("start tile:", start_pos, " goal tile:", goal)
 # Tile (0, 0) locates at left top corner.
 cv2.imshow("map", map_img)
 cv2.waitKey(200)
+
+env.render()
 
 curr_pos = start_pos
 total_reward = 0

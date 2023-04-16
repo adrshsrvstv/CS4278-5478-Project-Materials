@@ -5,9 +5,9 @@ from Plan import *
 
 def get_pid_params_for(state):
     if state == State.INITIALIZING:
-        k_p, k_d = 0.05, 2.5
+        k_p, k_d = 0.075, 2.5
     elif state == State.IN_LANE:
-        k_p, k_d = 0.1, 12.5
+        k_p, k_d = 0.15, 12.5
     elif state == State.IN_LANE_USING_RED:
         k_p, k_d = 0, 12.5
     elif state == State.TURNING:

@@ -16,7 +16,7 @@ yellow_upper = np.asarray([29, 255, 255])
 white_lower = np.asarray([0, 0, 100])
 white_upper = np.asarray([255, 40, 255])
 
-DISTANCE_OFFSET = 7
+DISTANCE_OFFSET = -5
 DEGREES_OFFSET = 0
 DOUBLE_LINE_HEADING_OFFSET = 5
 
@@ -124,7 +124,8 @@ def get_edges(hsv_img, color="yellow", blur=True):
     return edges
 
 
-def preprocess(img, mode):
+def preprocess(img, state):
+    mode = get_mode_from_state(state)
     hsv_image = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
     if mode == Mode.LOOKDOWN:
         return crop_looking_down(hsv_image)
@@ -137,7 +138,7 @@ def preprocess(img, mode):
 
 
 def get_lane_lines(img, state):
-    hsv_image = preprocess(img, get_mode_from_state(state))
+    hsv_image = preprocess(img, state)
     yellow = get_closest_line(hsv_image, "yellow", state)
     red = get_closest_line(hsv_image, "red", state)
     white = get_closest_line(hsv_image, "white", state, yellow_line_for_reference=yellow)
