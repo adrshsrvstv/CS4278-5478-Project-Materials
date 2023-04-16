@@ -59,6 +59,14 @@ env.render()
 map_img, goal, start_pos = env.get_task_info()
 print("start tile:", start_pos, " goal tile:", goal)
 
+# Show the map image
+# White pixels are drivable and black pixels are not.
+# Blue pixels indicate lan center
+# Each tile has size 100 x 100 pixels
+# Tile (0, 0) locates at left top corner.
+cv2.imshow("map", map_img)
+cv2.waitKey(200)
+
 curr_pos = start_pos
 total_reward = 0
 actions = []
@@ -83,9 +91,9 @@ while curr_pos != goal:
     if curr_pos == goal:
         break
 
-    speed, k_p, k_d, d_est, heading = controller.get_next_action(obs, info)
+    k_p, k_d, d_est, heading = controller.get_next_action(obs, info)
     steering = k_p * d_est + k_d * heading
-    speed = controller.get_speed(steering)
+    speed = get_speed(steering)
 
     actions.append((speed, steering))
 

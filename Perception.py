@@ -1,5 +1,5 @@
 import math
-
+from enum import Enum
 import cv2
 import numpy as np
 from numpy import linalg as la
@@ -25,6 +25,35 @@ midpoint_lookahead = np.asarray([320, 80])
 midpoint_initial = np.asarray([320, 330])
 
 origin = np.asarray([0, 0])
+
+
+class Mode(str, Enum):
+    LOOKDOWN = "lookdown"
+    LOOKAHEAD = "lookahead"
+    INITIAL = "initial"
+
+
+class State(Enum):
+    INITIALIZING = 1
+    IN_LANE = 2
+    IN_LANE_USING_RED = 3
+    TURNING = 4
+    CROSSING_INTERSECTION = 5
+
+
+def get_mode_from_state(state):
+    if state == State.INITIALIZING:
+        return Mode.INITIAL
+    elif state == State.IN_LANE:
+        return Mode.LOOKDOWN
+    elif state == State.IN_LANE_USING_RED:
+        return Mode.INITIAL
+    elif state == State.TURNING:
+        return Mode.LOOKDOWN
+    elif state == State.CROSSING_INTERSECTION:
+        return Mode.LOOKDOWN
+    else:
+        raise ValueError("Invalid state")
 
 
 def crop_looking_down(img):
@@ -95,19 +124,23 @@ def get_edges(hsv_img, color="yellow", blur=True):
     return edges
 
 
-def preprocess(img):
+def preprocess(img, mode):
     hsv_image = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-    return crop_looking_down(hsv_image), crop_looking_ahead(hsv_image), crop_for_initialization(hsv_image)
+    if mode == Mode.LOOKDOWN:
+        return crop_looking_down(hsv_image)
+    elif mode == Mode.LOOKAHEAD:
+        return crop_looking_ahead(hsv_image)
+    elif mode == Mode.INITIAL:
+        return crop_for_initialization(hsv_image)
+    else:
+        raise ValueError("Invalid Mode.")
 
 
-def get_lane_lines(hsv_image, mode):
-    yellow = get_closest_line(hsv_image, "yellow", mode)
-    white = get_closest_line(hsv_image, "white", mode)
-    red = get_closest_line(hsv_image, "red", mode)
-
-    if (white is not None) and (yellow is not None) and (not is_yellow_to_left_of_white(yellow, white)):
-        white = None
-
+def get_lane_lines(img, state):
+    hsv_image = preprocess(img, get_mode_from_state(state))
+    yellow = get_closest_line(hsv_image, "yellow", state)
+    red = get_closest_line(hsv_image, "red", state)
+    white = get_closest_line(hsv_image, "white", state, yellow_line_for_reference=yellow)
     return yellow, white, red
 
 
@@ -120,27 +153,23 @@ def get_lines_in_image(edges):
     return lines
 
 
-
 def filter_outlier_lines(lines):
     if (lines is None) or len(lines) == 0 or len(lines) == 1:
         filtered_lines = lines
-
-    elif len(lines) == 2:
-        if get_length(lines[0]) > get_length(lines[1]):
-            filtered_lines = [lines[0]]
-        else:
-            filtered_lines = [lines[1]]
+    elif (len(lines) == 2) and abs(np.degrees(slope(lines[0])) - np.degrees(slope(lines[1]))) > 20:
+        filtered_lines = [lines[0]] if get_length(lines[0]) > get_length(lines[1]) else [lines[1]]
     else:
-        slopes = [np.around(np.degrees(np.arctan(slope(line)))) for line in lines]
+        slopes = [abs(np.around(np.degrees(np.arctan(slope(line))))) for line in lines]
         mean = np.mean(slopes)
         std = np.std(slopes)
-        filtered_lines = [line for line in lines if (abs(mean - np.around(np.degrees(np.arctan(slope(line))))) <= 1.2*std)]
-
+        filtered_lines = [line for line in lines if
+                          (abs(mean - abs(np.around(np.degrees(np.arctan(slope(line)))))) <= min(2 * std, 15))]
     return filtered_lines
+
 
 def get_length(line):
     x1, y1, x2, y2 = line[0]
-    return math.sqrt((x1-x2)**2 + (y1-y2)**2)
+    return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
 def slope(line):
@@ -148,14 +177,73 @@ def slope(line):
     return (y2 - y1) / (x2 - x1 + 0.00000001)
 
 
-def get_closest_line(hsv_img, color, mode):
+def filter_on_color_based_on_state(lines, color, state, yellow_line_for_reference=None, red_line_for_reference=None):
+    if state == State.INITIALIZING:
+        if color == 'red':
+            pass
+        if color == 'white':
+            pass
+        if color == 'yellow':
+            pass
+    elif state == State.IN_LANE:
+        if color == 'red':
+            pass
+        if color == 'white':
+            # avoid detecting almost horizontal lines, such as of a perpendicular lane, but also lines from lane next to current pos
+            lines = [line for line in lines if np.degrees(np.arctan(slope(line))) > 15]
+            # avoid detecting lines that are not to the right of yellow if yellow is present
+            if yellow_line_for_reference is not None:
+                lines = [line for line in lines if is_yellow_to_left_of_white(yellow_line_for_reference, line)]
+        if color == 'yellow':
+            pass
+    elif state == State.IN_LANE_USING_RED:
+        if color == 'red':
+            # avoid red lines that are not nearly horizontal - for example, fom a perpendicular lane
+            lines = [line for line in lines if abs(np.degrees(np.arctan(slope(line)))) < 10]
+            # avoid red lines that are maybe horizontal but are entirely to the left of the image - they belong to opposite lane ahead of intersection
+            lines = [line for line in lines if (line[0][0] > 320 or line[0][2] > 320)]
+        if color == 'white':
+            pass
+        if color == 'yellow':
+            pass
+    elif state == State.CROSSING_INTERSECTION:
+        if color == 'red':
+            # avoid red lines that are not nearly horizontal - for example, fom a perpendicular lane
+            lines = [line for line in lines if abs(np.degrees(np.arctan(slope(line)))) < 10]
+            # avoid red lines that are maybe horizontal but are entirely to the left of the image - they belong to opposite lane ahead of intersection
+            lines = [line for line in lines if (line[0][0] > 320 or line[0][2] > 320)]
+        if color == 'white':
+            # avoid detecting almost horizontal lines, such as of a perpendicular lane, but also lines from lane next to current pos
+            lines = [line for line in lines if np.degrees(np.arctan(slope(line))) > 7]
+            # avoid detecting lines that are not to the right of yellow if yellow is present
+            if yellow_line_for_reference is not None:
+                lines = [line for line in lines if is_yellow_to_left_of_white(yellow_line_for_reference, line)]
+        if color == 'yellow':
+            # avoid detecting almost horizontal lines, such as of a perpendicular lane
+            lines = [line for line in lines if np.degrees(np.arctan(slope(line))) < -7]
+    elif state == State.TURNING:
+        if color == 'red':
+            pass
+        if color == 'white':
+            pass
+        if color == 'yellow':
+            pass
+    else:
+        raise ValueError("Invalid State")
+
+    return np.asarray(lines)
+
+
+def get_closest_line(hsv_img, color, state, yellow_line_for_reference=None, red_line_for_reference=None):
     edges = get_edges(hsv_img, color=color, blur=True)
-    lines = filter_outlier_lines(get_lines_in_image(edges))
+    lines = get_lines_in_image(edges)
+    lines = filter_on_color_based_on_state(lines, color, state, yellow_line_for_reference, red_line_for_reference)
+    lines = filter_outlier_lines(lines)
 
     closest_line = None
     min_dist = 5000000
     for line in lines:
-        dist = get_distance_from_line(line, mode)
+        dist = get_distance_from_line(line, get_mode_from_state(state))
         if dist < min_dist:
             closest_line = line
             min_dist = dist
@@ -166,11 +254,11 @@ def get_distance_from_line(line, mode):
     x1, y1, x2, y2 = line[0]
     p1 = np.asarray([x1, y1])
     p2 = np.asarray([x2, y2])
-    if mode == "lookahead":
+    if mode == Mode.LOOKAHEAD:
         return np.around(np.abs(np.cross(p2 - p1, midpoint_lookahead - p1) / la.norm(p2 - p1)))
-    elif mode == "lookdown":
+    elif mode == Mode.LOOKDOWN:
         return np.around(np.abs(np.cross(p2 - p1, midpoint_lookdown - p1) / la.norm(p2 - p1)))
-    elif mode == "initial":
+    elif mode == Mode.INITIAL:
         return np.around(np.abs(np.cross(p2 - p1, midpoint_initial - p1) / la.norm(p2 - p1)))
     else:
         raise ValueError("Invalid mode specified.")
@@ -192,22 +280,22 @@ def is_yellow_to_left_of_white(yellow_line, white_line):
 
 def get_d_est(yellow, white, mode):
     if yellow is not None and white is not None:
-        d_est = (get_distance_from_line(yellow, mode) - get_distance_from_line(white, mode))/2
+        d_est = (get_distance_from_line(yellow, mode) - get_distance_from_line(white, mode)) / 2
     elif white is not None:
-        d_est = one_side_distance_offset(mode)-get_distance_from_line(white, mode)
+        d_est = one_side_distance_offset(mode) - get_distance_from_line(white, mode)
     elif yellow is not None:
         d_est = get_distance_from_line(yellow, mode) - one_side_distance_offset(mode)
     else:
-        return 0
+        return 0  # could be intersection
     return d_est + DISTANCE_OFFSET
 
 
 def one_side_distance_offset(mode):
-    if mode == "lookdown":
-        return 194
-    if mode == "initial":
+    if mode == Mode.LOOKDOWN:
+        return 200
+    if mode == Mode.INITIAL:
         return 350
-    if mode == "lookahead":
+    if mode == Mode.LOOKAHEAD:
         return 95
 
 
@@ -223,7 +311,7 @@ def get_heading(yellow, white):
     elif (white is not None) and slope(white) > 0:
         heading = 90 - np.degrees(np.arctan(slope(white))) - DEGREES_OFFSET
     else:
-        heading = 0  # if you can't see yellow or white, keep going straight
+        heading = 0  # if you can't see yellow or white, keep going straight cuz it is probably intersection
     return np.radians(np.around(heading))
 
 
@@ -233,3 +321,12 @@ def is_line_to_left_of_centre(yellow):
         return x1 < 320
     else:
         return x2 < 320
+
+
+def get_heading_from_red_line(red_line):
+    target_slope = np.degrees(np.arctan((-1 / (slope(red_line) + 0.0000000001))))
+    if target_slope > 0:
+        heading = np.radians(90 - target_slope)
+    else:
+        heading = np.radians(target_slope + 90)
+    return heading
