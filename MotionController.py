@@ -93,14 +93,14 @@ while curr_pos != goal:
     if curr_pos == goal:
         break
 
+    cv2.imwrite("observations_test/" + str(env.unwrapped.step_count) + ".jpg", cv2.cvtColor(obs, cv2.COLOR_RGB2BGR))
     speed, steering = controller.get_next_action(obs, info)
     actions.append((speed, steering))
 
     curr_pos = info['curr_pos']
-    cv2.imwrite("observations_test/" + str(env.unwrapped.step_count) + ".jpg", cv2.cvtColor(obs, cv2.COLOR_RGB2BGR))
 
 print('Final Reward = %.3f' % total_reward)
 np.savetxt(f'./{args.map_name}_seed{args.seed}_start_{start_pos[0]},{start_pos[1]}_goal_{goal[0]},{goal[1]}.txt', actions, delimiter=',')
-
+cv2.imwrite("observations_test/map.jpg", cv2.cvtColor(map_img, cv2.COLOR_RGB2BGR))
 
 env.close()

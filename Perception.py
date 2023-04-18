@@ -16,7 +16,7 @@ yellow_upper = np.asarray([29, 255, 255])
 white_lower = np.asarray([0, 0, 100])
 white_upper = np.asarray([255, 40, 255])
 
-DISTANCE_OFFSET = 5 # analytically optimal
+DISTANCE_OFFSET = 5  # analytically optimal
 DEGREES_OFFSET = 0
 DOUBLE_LINE_HEADING_OFFSET = 3
 
@@ -35,20 +35,26 @@ class Mode(str, Enum):
 
 class State(Enum):
     INITIALIZING = 1
-    IN_LANE = 2
-    IN_LANE_USING_RED = 3
-    TURNING = 4
-    CROSSING_INTERSECTION = 5
+    IN_LANE_AND_FORWARD = 2
+    IN_LANE_AND_WAITING_TO_TURN = 3
+    IN_LANE_USING_RED = 4
+    TURNING_WITHIN_LANE = 5
+    TURNING_AT_INTERSECTION = 6
+    CROSSING_INTERSECTION = 7
 
 
 def get_mode_from_state(state):
     if state == State.INITIALIZING:
         return Mode.INITIAL
-    elif state == State.IN_LANE:
+    elif state == State.IN_LANE_AND_FORWARD:
+        return Mode.LOOKDOWN
+    elif state == State.IN_LANE_AND_WAITING_TO_TURN:
+        return Mode.LOOKDOWN
+    elif state == State.TURNING_WITHIN_LANE:
         return Mode.LOOKDOWN
     elif state == State.IN_LANE_USING_RED:
         return Mode.INITIAL
-    elif state == State.TURNING:
+    elif state == State.TURNING_AT_INTERSECTION:
         return Mode.LOOKDOWN
     elif state == State.CROSSING_INTERSECTION:
         return Mode.LOOKDOWN
@@ -146,9 +152,9 @@ def get_lane_lines(img, state):
 
 
 def get_lines_in_image(edges):
-    lines = cv2.HoughLinesP(edges, rho=1, theta=1 * np.pi / 180, threshold=35, minLineLength=75, maxLineGap=50)
+    lines = cv2.HoughLinesP(edges, rho=1, theta=1 * np.pi / 180, threshold=35, minLineLength=75, maxLineGap=20)
     if lines is None:
-        lines = cv2.HoughLinesP(edges, rho=1, theta=1 * np.pi / 180, threshold=35, minLineLength=65, maxLineGap=50)
+        lines = cv2.HoughLinesP(edges, rho=1, theta=1 * np.pi / 180, threshold=35, minLineLength=65, maxLineGap=20)
     if lines is None:
         lines = []
     return lines
@@ -160,11 +166,10 @@ def filter_outlier_lines(lines):
     elif (len(lines) == 2) and abs(np.degrees(np.arctan(slope(lines[0]))) - np.degrees(np.arctan(slope(lines[1])))) > 30:
         filtered_lines = [lines[0]] if get_length(lines[0]) > get_length(lines[1]) else [lines[1]]
     else:
-        slopes = [abs(np.around(np.degrees(np.arctan(slope(line))))) for line in lines]
+        slopes = [abs(np.around(angle_in_degrees(line))) for line in lines]
         mean = np.mean(slopes)
         std = np.std(slopes)
-        filtered_lines = [line for line in lines if
-                          (abs(mean - abs(np.around(np.degrees(np.arctan(slope(line)))))) <= min(2 * std, 15))]
+        filtered_lines = [line for line in lines if (abs(mean - abs(np.around(angle_in_degrees(line)))) <= min(2 * std, 15))]
     return filtered_lines
 
 
@@ -178,6 +183,10 @@ def slope(line):
     return (y2 - y1) / (x2 - x1 + 0.00000001)
 
 
+def angle_in_degrees(line):
+    return np.degrees(np.arctan(slope(line)))
+
+
 def filter_on_color_based_on_state(lines, color, state, yellow_line_for_reference=None, red_line_for_reference=None):
     if state == State.INITIALIZING:
         if color == 'red':
@@ -187,49 +196,71 @@ def filter_on_color_based_on_state(lines, color, state, yellow_line_for_referenc
         if color == 'yellow':
             if red_line_for_reference is not None:
                 # Avoid yellow lines that are almost horizontal
-                lines = [line for line in lines if abs(np.degrees(np.arctan(slope(line)))) > 10]
-            pass
-    elif state == State.IN_LANE:
+                lines = [line for line in lines if abs(angle_in_degrees(line)) > 10]
+            regular_yellow_lines = [line for line in lines if angle_in_degrees(line) < -12]
+            if len(regular_yellow_lines) != 0:
+                lines = regular_yellow_lines
+    elif state == State.IN_LANE_AND_FORWARD:
         if color == 'red':
-            pass
+            # avoid detecting non-horizontal lines
+            lines = [line for line in lines if abs(angle_in_degrees(line)) < 15]
         if color == 'white':
             # avoid detecting almost horizontal lines, such as of a perpendicular lane, but also lines from lane next to current pos
-            lines = [line for line in lines if np.degrees(np.arctan(slope(line))) > 15]
+            lines = [line for line in lines if angle_in_degrees(line) > 15]
             # avoid detecting lines that are not to the right of yellow if yellow is present
             if yellow_line_for_reference is not None:
                 lines = [line for line in lines if is_yellow_to_left_of_white(yellow_line_for_reference, line)]
         if color == 'yellow':
+            lines = [line for line in lines if angle_in_degrees(line) < -12]
+    elif state == State.IN_LANE_AND_WAITING_TO_TURN:
+        if color == 'red':
+            # avoid detecting non-horizontal lines
+            lines = [line for line in lines if abs(angle_in_degrees(line)) < 15]
+        if color == 'white':
+            if red_line_for_reference is not None:
+                # avoid detecting almost horizontal lines, such as of a perpendicular lane, but also lines from lane next to current pos
+                lines = [line for line in lines if angle_in_degrees(line) > 15]
+            if yellow_line_for_reference is not None:
+                lines = [line for line in lines if is_yellow_to_left_of_white(yellow_line_for_reference, line)]
+        if color == 'yellow':
+            lines = [line for line in lines if angle_in_degrees(line) < -12]  # reconsider
+    elif state == State.TURNING_WITHIN_LANE:
+        if color == 'red':
             pass
+        if color == 'white':
+            pass
+        if color == 'yellow':
+            lines = [line for line in lines if abs(angle_in_degrees(line)) > 5]  # reconsider
     elif state == State.IN_LANE_USING_RED:
         if color == 'red':
             # avoid red lines that are not nearly horizontal - for example, fom a perpendicular lane
-            lines = [line for line in lines if abs(np.degrees(np.arctan(slope(line)))) < 10]
+            lines = [line for line in lines if abs(angle_in_degrees(line)) < 10]
             # avoid red lines that are maybe horizontal but are entirely to the left of the image - they belong to opposite lane ahead of intersection
             lines = [line for line in lines if (line[0][0] > 320 or line[0][2] > 320)]
         if color == 'white':
             # avoid the ghost white line on edge of red lane
             if red_line_for_reference is not None:
-                lines = [line for line in lines if abs(np.degrees(np.arctan(slope(line))) - np.degrees(np.arctan(slope(red_line_for_reference)))) > 15]
+                lines = [line for line in lines if abs(angle_in_degrees(line) - np.degrees(np.arctan(slope(red_line_for_reference)))) > 15]
         if color == 'yellow':
             # Avoid yellow lines that are almost parallel to red line
             if red_line_for_reference is not None:
-                lines = [line for line in lines if abs(np.degrees(np.arctan(slope(line))) - np.degrees(np.arctan(slope(red_line_for_reference)))) > 15]
+                lines = [line for line in lines if abs(angle_in_degrees(line) - np.degrees(np.arctan(slope(red_line_for_reference)))) > 15]
     elif state == State.CROSSING_INTERSECTION:
         if color == 'red':
             # avoid red lines that are not nearly horizontal - for example, fom a perpendicular lane
-            lines = [line for line in lines if abs(np.degrees(np.arctan(slope(line)))) < 10]
+            lines = [line for line in lines if abs(angle_in_degrees(line)) < 10]
             # avoid red lines that are maybe horizontal but are entirely to the left of the image - they belong to opposite lane ahead of intersection
             lines = [line for line in lines if (line[0][0] > 320 or line[0][2] > 320)]
         if color == 'white':
             # avoid detecting almost horizontal lines, such as of a perpendicular lane, but also lines from lane next to current pos
-            lines = [line for line in lines if np.degrees(np.arctan(slope(line))) > 7]
+            lines = [line for line in lines if angle_in_degrees(line) > 15]
             # avoid detecting lines that are not to the right of yellow if yellow is present
             if yellow_line_for_reference is not None:
                 lines = [line for line in lines if is_yellow_to_left_of_white(yellow_line_for_reference, line)]
         if color == 'yellow':
             # avoid detecting almost horizontal lines, such as of a perpendicular lane
-            lines = [line for line in lines if np.degrees(np.arctan(slope(line))) < -7]
-    elif state == State.TURNING:
+            lines = [line for line in lines if angle_in_degrees(line) < -7]
+    elif state == State.TURNING_AT_INTERSECTION:
         if color == 'red':
             pass
         if color == 'white':
@@ -237,7 +268,7 @@ def filter_on_color_based_on_state(lines, color, state, yellow_line_for_referenc
         if color == 'yellow':
             pass
     else:
-        raise ValueError("Invalid State")
+        raise ValueError("Invalid State:", state)
 
     return np.asarray(lines)
 
@@ -304,12 +335,13 @@ def one_side_distance_offset(mode):
     if mode == Mode.INITIAL:
         return 350
     if mode == Mode.LOOKAHEAD:
-        return 95
+        return 85
 
 
 def get_heading(yellow, white):
     if (yellow is not None) and (white is not None):
-        heading = (np.degrees(np.arctan(slope(yellow))) + np.degrees(np.arctan(slope(white)))) + DOUBLE_LINE_HEADING_OFFSET
+        heading = (np.degrees(np.arctan(slope(yellow))) + np.degrees(
+            np.arctan(slope(white)))) + DOUBLE_LINE_HEADING_OFFSET
     elif (yellow is not None) and slope(yellow) <= 0:
         heading = np.degrees(np.arctan(slope(yellow))) - 90 + DEGREES_OFFSET
     elif (yellow is not None) and slope(yellow) > 0:
@@ -332,7 +364,7 @@ def is_line_to_left_of_centre(yellow):
 
 
 def get_heading_from_red_line(red_line):
-    target_slope = np.degrees(np.arctan((-1 / (slope(red_line) + 0.0000000001))))
+    target_slope = np.around(np.degrees(np.arctan((-1 / (slope(red_line) + 0.0000000001)))))
     if target_slope > 0:
         heading = np.radians(90 - target_slope)
     else:

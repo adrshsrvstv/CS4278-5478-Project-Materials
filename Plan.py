@@ -9,10 +9,15 @@ class Intent(str, Enum):
 
 
 class Plan:
-    def __init__(self, filepath):
-        self.plan = self.__read_plan__(filepath)
+    def __init__(self, filepath=None, list_plan=None):
+        if (filepath is not None) and (list_plan is None):
+            self.plan = self.__read_plan_from_file__(filepath)
+        elif (list_plan is not None) and (filepath is None):
+            self.plan = list_plan
+        else:
+            raise ValueError("Exactly one of `filepath` or `list_plan` needs to be None.")
 
-    def __read_plan__(self, filepath):
+    def __read_plan_from_file__(self, filepath):
         plan = []
         with open(filepath) as csvfile:
             for row in csv.reader(csvfile):
@@ -24,6 +29,12 @@ class Plan:
     def get_current_goal(self):
         if len(self.plan) != 0:
             return self.plan[0]
+        else:
+            return None, None
+
+    def get_next_goal(self):
+        if len(self.plan) >= 2:
+            return self.plan[1]
         else:
             return None, None
 
