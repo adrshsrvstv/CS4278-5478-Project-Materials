@@ -213,6 +213,8 @@ def filter_on_color_based_on_state(lines, color, state, yellow_line_for_referenc
         if color == 'red':
             # avoid detecting non-horizontal lines
             lines = [line for line in lines if abs(angle_in_degrees(line)) < 15]
+            # avoid red lines that are maybe horizontal but are entirely to the left of the image - they belong to opposite lane ahead of intersection
+            lines = [line for line in lines if (line[0][0] > 320 or line[0][2] > 320)]
         if color == 'white':
             # avoid detecting almost horizontal lines, such as of a perpendicular lane, but also lines from lane next to current pos
             lines = [line for line in lines if angle_in_degrees(line) > 15]
