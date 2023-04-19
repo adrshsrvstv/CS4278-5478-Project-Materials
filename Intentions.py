@@ -180,6 +180,21 @@ def convert_img_to_map(map_img):
     return tiles
 
 
+def get_turn(curr_tile, prev_tile):
+    if prev_tile.parent is None:
+        return False
+    if curr_tile.loc[0] == prev_tile.loc[0]:
+        if prev_tile.loc[0] == prev_tile.parent.loc[0]:
+            return False
+        else:
+            return True
+    elif curr_tile.loc[1] == prev_tile.loc[1]:
+        if prev_tile.loc[1] == prev_tile.parent.loc[1]:
+            return False
+        else:
+            return True
+
+
 def get_plan(map_image, start, goal):
     # with open(f'gym-duckietown/gym_duckietown/map_2021/{map_name}.yaml', 'r') as yaml_f:
     #     map_info = yaml.safe_load(yaml_f)
@@ -245,6 +260,8 @@ def get_plan(map_image, start, goal):
 
             step.g = curr_tile.g + cost
             step.h = ((step.loc[0] - goal_tile.loc[0]) ** 2) + ((step.loc[1] - goal_tile.loc[1]) ** 2)
+            if get_turn(step, curr_tile):
+                step.h += 10
             step.f = step.g + step.h
 
             flag = 0
@@ -257,7 +274,8 @@ def get_plan(map_image, start, goal):
                 continue
 
             new_list.append(step)
-    path = generate_intentions(curr_tile)
+    path, debug = generate_intentions(curr_tile)
+    # print(debug)
     # if curr_tile.loc == goal_tile.loc:
     #     print(map_name, 'Goal Found')
     # else:
@@ -279,6 +297,7 @@ def generate_intentions(final_tile):
     tiles = tiles[::-1]
 
     intentions = [(tiles[0].loc, 'forward')]
+    intentions_debug = [[tiles[0].loc, 'forward']]
     tiles.pop(0)
     for tile in tiles:
         if tile.type == '4way':
@@ -299,13 +318,16 @@ def generate_intentions(final_tile):
                 intention = moves[(moves.index(tile.next_move) + 1) % 4]
         if intention == 'up':
             intention = 'forward'
-        # intentions.append((tile.loc, intention, tile.type, tile.prev_move))
+        intentions_debug.append((tile.loc, intention, tile.type, tile.prev_move))
         intentions.append((tile.loc, intention))
-    return intentions
+    return intentions, intentions_debug     
+
+
 
 
 # if __name__ == "__main__":
-#     process_all_maps()
-#     # map_img = cv2.imread('map3.png')
+#     # process_all_maps()
+#     map_img = cv2.imread('map2.png')
 #     # process_one_map(map_img, 'map3_0')
+#     get_plan('map2_1', map_img, (1, 1), (7, 7))
 #     # get_allowed_moves('curve_left\E')
