@@ -21,7 +21,7 @@ class Plan:
         plan = []
         with open(filepath) as csvfile:
             for row in csv.reader(csvfile):
-                goal_tile = int(row[0][1]), int(row[1][1])
+                goal_tile = int(row[0][1:]), int(row[1][1:-1])
                 intent = Intent(row[2][1:])
                 plan.append((goal_tile, intent))
         return plan

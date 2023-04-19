@@ -2,7 +2,7 @@
 *~
 
 .idea/
-
+*.txt
 gym-duckietown/test_dev/
 path_*.yaml
 observations_test/
