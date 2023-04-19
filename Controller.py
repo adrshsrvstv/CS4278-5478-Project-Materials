@@ -50,7 +50,7 @@ def get_straight_steps_for_turn_at_intersection(intent):
     if intent == Intent.LEFT:
         return 14
     elif intent == Intent.RIGHT:
-        return 7
+        return 5
     else:
         raise ValueError("Invalid Intent", intent)
 
@@ -136,7 +136,6 @@ class Controller:
                 self.change_state_to(State.IN_LANE_AND_FORWARD)
 
         elif self.state == State.IN_LANE_AND_FORWARD:
-            print("\tCurrent intent: ", intent, " Current goal: ", goal_tile)
             if red is not None:
                 heading = get_heading_from_red_line(red)
                 self.change_state_to(State.IN_LANE_USING_RED)
@@ -150,15 +149,15 @@ class Controller:
                     self.turn_goal = next_goal
                 print("\tSetting turn intent to ", self.turn_intent)
                 self.change_state_to(State.IN_LANE_AND_WAITING_TO_TURN)
-                print("turn_intent: ", self.turn_intent, " curr_intent: ", intent, " next_intent: ", next_intent)
+            elif white is not None and angle_in_degrees(white) > 20:
+                heading = np.radians(angle_in_degrees(white) - 28)
             elif (yellow is None and white is not None) or (white is None and yellow is not None):
                 self.change_state_to(State.INITIALIZING)
                 return self.get_next_action(observation, info)
             else:
-                heading = get_heading(yellow, white)
+                heading = 0
 
         elif self.state == State.IN_LANE_AND_WAITING_TO_TURN:
-            print("Current intent: ", intent, "turn_intent: ", self.turn_intent, " Current goal: ", goal_tile)
             closer_line, farther_line = (yellow, white) if self.turn_intent == Intent.LEFT else (white, yellow)
             if red is not None:
                 heading = get_heading_from_red_line(red)
