@@ -1,6 +1,9 @@
 from Perception import *
 from Plan import *
 from Intentions import get_plan
+import pprint
+
+pp = pprint.PrettyPrinter(indent=4)
 
 TURN_ANGLE_PER_STEP_FOR_INTERSECTION = 24
 TURN_ANGLE_PER_STEP_IN_LANE = 25
@@ -97,6 +100,7 @@ class Controller:
             self.plan = Plan(list_plan=get_plan(map_image, start_tile, goal_tile))
         else:
             raise ValueError("Exactly one of plan_file or map_image (along with start and goal tiles) must be supplied.")
+        pp.pprint(self.plan.plan)
 
     def change_state_to(self, state):
         if self.state != state:
