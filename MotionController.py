@@ -37,7 +37,7 @@ parser.add_argument('--map-name', '-m', default="map4_0", type=str)
 parser.add_argument('--seed', '-s', default=2, type=int)
 parser.add_argument('--start-tile', '-st', default="1,13", type=str, help="two numbers separated by a comma")
 parser.add_argument('--goal-tile', '-gt', default="3,3", type=str, help="two numbers separated by a comma")
-parser.add_argument('--control_path', default='./map4_0_seed2_start_1,13_goal_3,3.txt', type=str,
+parser.add_argument('--control_path', default=None, type=str,
                     help="the control file to run")
 parser.add_argument('--manual', default=False, type=str2bool, help="whether to manually control the robot")
 args = parser.parse_args()
@@ -65,6 +65,7 @@ print("start tile:", start_pos, " goal tile:", goal)
 # Each tile has size 100 x 100 pixels
 # Tile (0, 0) locates at left top corner.
 cv2.imshow("map", map_img)
+cv2.imwrite("observations_test/"+args.map_name+".jpg", cv2.cvtColor(map_img, cv2.COLOR_RGB2BGR))
 cv2.waitKey(200)
 
 env.render()
@@ -81,7 +82,10 @@ k_d = 0.1
 speed = 0
 steering = 0
 
-controller = Controller(plan_file=args.control_path)
+if args.control_path is not None:
+    controller = Controller(plan_file=args.control_path)
+else:
+    controller = Controller(map_image=map_img, start_tile=start_pos, goal_tile=goal)
 
 while curr_pos != goal:
     obs, reward, done, info = env.step([speed, steering])
