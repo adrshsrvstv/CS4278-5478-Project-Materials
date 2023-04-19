@@ -1,5 +1,6 @@
 from Perception import *
 from Plan import *
+from Intentions import get_plan
 
 TURN_ANGLE_PER_STEP_FOR_INTERSECTION = 24
 TURN_ANGLE_PER_STEP_IN_LANE = 25
@@ -82,14 +83,20 @@ def get_turn_angle_for_in_lane_turning(intent):
 
 
 class Controller:
-    def __init__(self, plan_file):
+    def __init__(self, plan_file=None, map_image=None, start_tile=None, goal_tile=None):
         self.state = State.INITIALIZING
-        self.plan = Plan(plan_file)
         self.straight_steps_before_turn = 0
         self.turn_steps_taken = 0
         self.turn_intent = None
         self.turn_goal = None
         self.done_turn_goals = []
+
+        if (plan_file is not None) and (map_image is None):
+            self.plan = Plan(filepath=plan_file)
+        elif (map_image is not None) and (start_tile is not None) and (goal_tile is not None) and (plan_file is None):
+            self.plan = Plan(list_plan=get_plan(map_image, start_tile, goal_tile))
+        else:
+            raise ValueError("Exactly one of plan_file or map_image (along with start and goal tiles) must be supplied.")
 
     def change_state_to(self, state):
         if self.state != state:

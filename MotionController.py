@@ -81,7 +81,7 @@ k_d = 0.1
 speed = 0
 steering = 0
 
-controller = Controller(args.control_path)
+controller = Controller(plan_file=args.control_path)
 
 while curr_pos != goal:
     obs, reward, done, info = env.step([speed, steering])
