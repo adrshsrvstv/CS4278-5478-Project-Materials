@@ -195,8 +195,8 @@ def filter_on_color_based_on_state(lines, color, state, yellow_line_for_referenc
             pass
         if color == 'yellow':
             if red_line_for_reference is not None:
-                # Avoid yellow lines that are almost horizontal
-                lines = [line for line in lines if abs(angle_in_degrees(line)) > 10]
+                # Avoid yellow lines that are almost parallel with red
+                lines = [line for line in lines if abs(angle_in_degrees(line)-angle_in_degrees(red_line_for_reference)) > 18]
             regular_yellow_lines = [line for line in lines if angle_in_degrees(line) < -12]
             if len(regular_yellow_lines) != 0:
                 lines = regular_yellow_lines
@@ -343,8 +343,7 @@ def one_side_distance_offset(mode):
 
 def get_heading(yellow, white):
     if (yellow is not None) and (white is not None):
-        heading = (np.degrees(np.arctan(slope(yellow))) + np.degrees(
-            np.arctan(slope(white)))) + DOUBLE_LINE_HEADING_OFFSET
+        heading = (np.degrees(np.arctan(slope(yellow))) + np.degrees(np.arctan(slope(white)))) + DOUBLE_LINE_HEADING_OFFSET
     elif (yellow is not None) and slope(yellow) <= 0:
         heading = np.degrees(np.arctan(slope(yellow))) - 90 + DEGREES_OFFSET
     elif (yellow is not None) and slope(yellow) > 0:

@@ -119,6 +119,12 @@ class Controller:
 
         if self.state == State.INITIALIZING:
             heading = get_heading(yellow, white)
+            # if red is not None:
+            #     heading = get_heading_from_red_line(red)
+            #     if abs(np.degrees(heading)) < 20:
+            #         self.change_state_to(State.IN_LANE_USING_RED)
+            # if (red is not None) and (white is not None) and abs(angle_in_degrees(red)) < 5:
+            #     self.change_state_to(State.IN_LANE_USING_RED)
             if abs(np.degrees(heading)) < 10:  # and abs(d_est) < 25:
                 self.change_state_to(State.IN_LANE_AND_FORWARD)
 
@@ -127,12 +133,12 @@ class Controller:
             if red is not None:
                 heading = get_heading_from_red_line(red)
                 self.change_state_to(State.IN_LANE_USING_RED)
-            elif (intent is not None and intent != Intent.FORWARD and (not self.is_turn_goal_done(goal_tile))) or (next_intent is not None and next_intent != Intent.FORWARD and (not self.is_turn_goal_done(next_goal))):
+            elif ((intent is not None) and (intent != Intent.FORWARD) and (not self.is_turn_goal_done(goal_tile))) or (next_intent is not None and next_intent != Intent.FORWARD and (not self.is_turn_goal_done(next_goal))):
                 heading = get_heading(yellow, white)
-                if intent != Intent.FORWARD:
+                if (intent is not None) and (intent != Intent.FORWARD) and (not self.is_turn_goal_done(goal_tile)):
                     self.turn_intent = intent
                     self.turn_goal = goal_tile
-                else:
+                if (next_intent is not None) and (next_intent != Intent.FORWARD) and (not self.is_turn_goal_done(next_goal)):
                     self.turn_intent = next_intent
                     self.turn_goal = next_goal
                 print("\tSetting turn intent to ", self.turn_intent)
