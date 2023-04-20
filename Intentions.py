@@ -304,7 +304,7 @@ def generate_intentions(final_tile):
             tile_type = '4way'
         else:
             tile_type, _ = tile.type.split('/')
-        if tile_type in ['straight', 'curve_left', 'curve_right'] or tile.next_move is None:
+        if tile_type in ['straight'] or tile.next_move is None:
             intention = 'forward'
         else:
             entered_from = enter_from[tile.prev_move]
@@ -320,7 +320,7 @@ def generate_intentions(final_tile):
             intention = 'forward'
         intentions_debug.append((tile.loc, intention, tile.type, tile.prev_move))
         intentions.append((tile.loc, intention))
-    return intentions, intentions_debug     
+    return intentions, intentions_debug
 
 
 
